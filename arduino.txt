@@ -1,0 +1,60 @@
+
+#include <SPI.h>
+#include <Ethernet.h>
+
+
+// QuakeAlarm
+#define QUAKEALARM A0
+
+// Variable que mantiene el valor anterior del QuakeAlarm
+static int diferencia;
+int qaVal           = 0;
+int qaPreVal        = 0;
+int threshold       = 10;
+int contador        = 0;
+int intervaloTiempo = 5000; // Intervalo de tiempo entre dos llamadas al servicio web
+long ultimaConexion = 0; // Tiempo en milisegundos desde la ultima conexion al servicio web
+
+// Variables Ethernet 
+
+//Se introducen los valores correspondientes a MAC, IP local, Puerta de Enlace y Máscara de Red
+byte mac[] = { 
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+byte ip[] = { 192,168,15,120 }; // Direccion IP del Arduino
+byte server[] = { 192,168,15,111 }; // Direccion IP del servidor
+EthernetClient client;
+ 
+void setup () {   
+  Serial.begin(57600);
+  pinMode(QUAKEALARM, INPUT); 
+  // ethernet 
+  Ethernet.begin(mac, ip); // Inicializamos el Ethernet Shield 
+} 
+
+void loop () {
+
+  qaVal       = analogRead(QUAKEALARM);
+  diferencia  = qaPreVal - qaVal; 
+
+  if ((diferencia > 0) and (diferencia >= threshold) and ((millis() - ultimaConexion) > intervaloTiempo) ) {
+     //do an action
+     contador = contador + 1;
+     Serial.print("Sismo! ");
+     Serial.println(contador);
+     ultimaConexion = millis(); 
+   //  delay(200);
+     //ethernet
+     if (client.connect(server, 5002)>0) {
+       Serial.println("Conecto");
+       client.print("GET /?key=1122334455&sismo=1"); // Enviamos los datos por GET
+       //client.print(temperatura);
+       client.println(" HTTP/1.0");
+       client.println("User-Agent: Arduino 1.0");
+     }
+     client.stop();
+     client.flush();
+   
+   
+  } 
+  qaPreVal = qaVal; 
+}
